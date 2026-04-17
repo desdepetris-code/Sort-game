@@ -1,15 +1,15 @@
-export type ButterflyType = 'monarch' | 'swallowtail' | 'blue-morpho' | 'painted-lady' | 'zebra-longwing' | 'copper' | 'admiral' | 'peacock';
+export type BallType = 'red' | 'blue' | 'green' | 'yellow' | 'purple' | 'orange' | 'cyan' | 'pink' | 'white' | 'black';
 
 export interface Target {
   id: string;
-  type: ButterflyType;
+  type: BallType;
   current: number;
   max: 5;
 }
 
 export interface Tube {
   id: string;
-  butterflies: ButterflyType[];
+  balls: BallType[];
   max: 10;
 }
 
@@ -31,8 +31,8 @@ export interface GameState {
   powerups: PowerUps;
   
   targets: Target[];
-  upcomingTargets: ButterflyType[];
-  mechanismQueue: ButterflyType[];
+  upcomingTargets: BallType[];
+  mechanismQueue: BallType[];
   maxMechanismCapacity: number;
   tubes: Tube[];
   

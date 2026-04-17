@@ -1,8 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
-import { GameState, ButterflyType, Target, Tube, PowerUps } from '../types';
+import { GameState, BallType, Target, Tube, PowerUps } from '../types';
 import { generateLevel } from '../lib/utils';
-
-const LIVES_REGEN_MS = 20 * 60 * 1000;
 
 const initialPowerUps = {
   hammer: 1,
@@ -12,9 +10,8 @@ const initialPowerUps = {
 };
 
 export function useGame() {
-  console.log("useGame hook initialized");
   const [state, setState] = useState<GameState>(() => {
-    const saved = localStorage.getItem('butterflyGameState');
+    const saved = localStorage.getItem('ballGameState');
     if (saved) {
       try {
         return JSON.parse(saved);
@@ -41,7 +38,7 @@ export function useGame() {
   });
 
   useEffect(() => {
-    localStorage.setItem('butterflyGameState', JSON.stringify(state));
+    localStorage.setItem('ballGameState', JSON.stringify(state));
   }, [state]);
 
   const startGame = () => {
@@ -57,36 +54,28 @@ export function useGame() {
     }));
   };
 
-  const hasUnlimitedLives = state.unlimitedLivesUntil && state.unlimitedLivesUntil > Date.now();
-
   const processQueue = useCallback(() => {
     setState(s => {
       if (s.status !== 'playing') return s;
       let newQueue = [...s.mechanismQueue];
       let newTargets = [...s.targets];
-      let newUpcoming = [...s.upcomingTargets];
-      let matched = false;
+      let matchFound = false;
 
-      for (let i = 0; i < newQueue.length; i++) {
-        const type = newQueue[i];
-        const targetIndex = newTargets.findIndex(t => t.type === type && t.current < t.max);
+      // Simple queue processing for balls
+      if (newQueue.length > 0) {
+        const ball = newQueue[newQueue.length - 1];
+        const targetIndex = newTargets.findIndex(t => t.type === ball && t.current < t.max);
+        
         if (targetIndex !== -1) {
-          newQueue.splice(i, 1);
-          newTargets[targetIndex] = { ...newTargets[targetIndex], current: newTargets[targetIndex].current + 1 };
-          matched = true;
-          if (newTargets[targetIndex].current === newTargets[targetIndex].max) {
-            if (newUpcoming.length > 0) {
-              newTargets[targetIndex] = { id: `target-${Date.now()}-${targetIndex}`, type: newUpcoming.shift()!, current: 0, max: 5 };
-            }
-          }
-          break;
+            newQueue.pop();
+            newTargets[targetIndex] = { ...newTargets[targetIndex], current: newTargets[targetIndex].current + 1 };
+            matchFound = true;
         }
       }
 
-      if (newTargets.every(t => t.current === t.max) && newUpcoming.length === 0) return handleWin({ ...s, targets: newTargets, mechanismQueue: newQueue, upcomingTargets: newUpcoming });
-      if (!matched && newQueue.length >= s.maxMechanismCapacity) return handleLoss({ ...s, targets: newTargets, mechanismQueue: newQueue, upcomingTargets: newUpcoming });
-      if (matched) return { ...s, targets: newTargets, mechanismQueue: newQueue, upcomingTargets: newUpcoming };
-      return s;
+      const allFull = newTargets.every(t => t.current === t.max);
+      if (allFull) return { ...s, status: 'won', targets: newTargets, mechanismQueue: newQueue };
+      return { ...s, targets: newTargets, mechanismQueue: newQueue };
     });
   }, []);
 
@@ -97,34 +86,15 @@ export function useGame() {
     }
   }, [state.mechanismQueue, state.status, processQueue]);
 
-  const handleWin = (s: GameState): GameState => {
-    const newStreak = s.streak + 1;
-    let newUnlimited = s.unlimitedLivesUntil;
-    let powerups = { ...s.powerups };
-    if (newStreak === 10) newUnlimited = Date.now() + 60 * 60 * 1000;
-    else if (newStreak === 5) newUnlimited = Date.now() + 30 * 60 * 1000;
-    else if (newStreak > 1) {
-      const pKeys = Object.keys(powerups) as (keyof PowerUps)[];
-      powerups[pKeys[Math.floor(Math.random() * pKeys.length)]]++;
-    }
-    return { ...s, status: 'won', streak: newStreak, unlimitedLivesUntil: newUnlimited, powerups };
-  };
-
-  const handleLoss = (s: GameState): GameState => {
-    if (Date.now() - s.levelStartTime > 86400000) return { ...s, status: 'impossible_reward' };
-    const hasUnlimited = s.unlimitedLivesUntil && s.unlimitedLivesUntil > Date.now();
-    return { ...s, status: 'lost', streak: 0, lives: hasUnlimited ? s.lives : Math.max(0, s.lives - 1), lastLifeLoss: (!hasUnlimited && s.lives === s.maxLives) ? Date.now() : s.lastLifeLoss };
-  };
-
   const tapTube = (tubeIndex: number) => {
     setState(s => {
-      if (s.status !== 'playing' || s.mechanismQueue.length >= s.maxMechanismCapacity) return s;
+      if (s.status !== 'playing' || s.mechanismQueue.length >= 1) return s; // Take one at a time for manual filling
       const tube = s.tubes[tubeIndex];
-      if (tube.butterflies.length === 0) return s;
+      if (tube.balls.length === 0) return s;
       const newTubes = [...s.tubes];
-      const popped = [...tube.butterflies].pop()!;
-      newTubes[tubeIndex] = { ...tube, butterflies: [...tube.butterflies].slice(0, -1) };
-      return { ...s, tubes: newTubes, mechanismQueue: [...s.mechanismQueue, popped] };
+      const popped = [...tube.balls].pop()!;
+      newTubes[tubeIndex] = { ...tube, balls: [...tube.balls].slice(0, -1) };
+      return { ...s, tubes: newTubes, mechanismQueue: [popped] };
     });
   };
 
@@ -137,45 +107,13 @@ export function useGame() {
 
   const retryLevel = () => {
     setState(s => {
-      if (s.lives <= 0 && !(s.unlimitedLivesUntil && s.unlimitedLivesUntil > Date.now())) return s;
       const { targets, upcomingTargets, tubes } = generateLevel(s.level);
       return { ...s, status: 'playing', levelStartTime: Date.now(), targets, upcomingTargets, tubes, mechanismQueue: [] };
     });
   };
 
-  const claimImpossibleReward = () => {
-    setState(s => ({ ...s, status: 'playing', unlimitedLivesUntil: Date.now() + (Date.now() - s.levelStartTime > 604800000 ? 3600000 : 600000), powerups: { ...s.powerups, wand: s.powerups.wand + 1, hammer: s.powerups.hammer + 1 }, levelStartTime: Date.now(), mechanismQueue: [] }));
-  };
+  // Simplified powerups for ball logic
+  const useHammer = () => setState(s => ({...s, mechanismQueue: []}));
 
-  const useWand = (targetIndex: number) => {
-    setState(s => {
-      if (s.powerups.wand <= 0 || s.status !== 'playing') return s;
-      const newTargets = [...s.targets];
-      newTargets[targetIndex] = { ...newTargets[targetIndex], current: newTargets[targetIndex].max };
-      return { ...s, targets: newTargets, powerups: { ...s.powerups, wand: s.powerups.wand - 1 } };
-    });
-  };
-
-  const useHammer = (queueIndex: number) => {
-    setState(s => {
-      if (s.powerups.hammer <= 0 || s.status !== 'playing') return s;
-      const newQueue = [...s.mechanismQueue];
-      newQueue.splice(queueIndex, 1);
-      return { ...s, mechanismQueue: newQueue, powerups: { ...s.powerups, hammer: s.powerups.hammer - 1 } };
-    });
-  };
-
-  const useShuffle = () => {
-    setState(s => {
-      if (s.powerups.shuffle <= 0 || s.status !== 'playing') return s;
-      const all = s.tubes.flatMap(t => t.butterflies);
-      for (let i = all.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [all[i], all[j]] = [all[j], all[i]];
-      }
-      return { ...s, tubes: s.tubes.map(t => ({ ...t, butterflies: all.splice(0, t.butterflies.length) })), powerups: { ...s.powerups, shuffle: s.powerups.shuffle - 1 } };
-    });
-  };
-
-  return { state, hasUnlimitedLives, tapTube, nextLevel, retryLevel, claimImpossibleReward, useWand, useHammer, useShuffle, startGame };
+  return { state, tapTube, nextLevel, retryLevel, useHammer, startGame };
 }
