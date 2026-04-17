@@ -1,0 +1,6 @@
+{
+  "name": "Butterfly Ball Sort",
+  "description": "A puzzle game where you sort colored balls into targets using a butterfly track. Features lives, streaks, and power-ups.",
+  "requestFramePermissions": [],
+  "majorCapabilities": []
+}
