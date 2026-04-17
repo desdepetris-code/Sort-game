@@ -12,6 +12,7 @@ const initialPowerUps = {
 };
 
 export function useGame() {
+  console.log("useGame hook initialized");
   const [state, setState] = useState<GameState>(() => {
     const saved = localStorage.getItem('butterflyGameState');
     if (saved) {

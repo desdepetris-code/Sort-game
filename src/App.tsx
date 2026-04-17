@@ -11,6 +11,10 @@ export default function App() {
     claimImpossibleReward, useWand, useHammer, useShuffle, startGame 
   } = useGame();
 
+  React.useEffect(() => {
+    console.log("App component rendered. State:", state);
+  }, [state]);
+
   const renderButterfly = (type: ButterflyType, key: string, className = '') => (
     <motion.div
       key={key}
@@ -23,9 +27,28 @@ export default function App() {
 
   if (state.status === 'home') {
     return (
-      <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center text-white">
-        <h1 className="text-5xl font-bold mb-8">Butterfly Sort</h1>
-        <button onClick={startGame} className="py-4 px-12 bg-purple-600 rounded-full font-bold text-2xl hover:bg-purple-500">Play</button>
+      <div className="min-h-screen bg-slate-900 flex flex-col text-white">
+        <header className="p-4 flex justify-between items-center bg-slate-800/50">
+          <div className="flex items-center gap-2">
+            <Heart className="w-5 h-5 text-red-500 fill-red-500" />
+            <span className="font-bold">{state.lives}</span>
+          </div>
+        </header>
+
+        <main className="flex-1 flex flex-col items-center justify-center gap-6">
+          <h1 className="text-4xl font-bold">Butterfly Sort</h1>
+          <div className="text-xl">Level {state.level}</div>
+          <button onClick={startGame} className="py-4 px-12 bg-purple-600 rounded-full font-bold text-2xl hover:bg-purple-500 flex items-center gap-2">
+            <Play className="w-6 h-6" /> Play
+          </button>
+        </main>
+
+        <nav className="p-4 bg-slate-800 flex justify-center">
+          <button className="flex flex-col items-center gap-1 hover:text-purple-400">
+            <div className="p-2 bg-slate-700/50 rounded-full"><Trophy className="w-6 h-6" /></div>
+            <span className="text-xs">Store</span>
+          </button>
+        </nav>
       </div>
     );
   }
